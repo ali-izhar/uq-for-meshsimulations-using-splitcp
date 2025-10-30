@@ -13,13 +13,15 @@ COVERAGE_WARNING_THRESHOLD = 0.02
 
 
 # Import utilities from extracted modules
-from .data_utils import load_predictions_from_file
-from .data_utils import prepare_conformal_data as _prepare_conformal_data
 from .data_utils import (
-    compute_normalized_width_stats as _compute_normalized_width_stats,
+    load_predictions_from_file,
+    prepare_conformal_data,
+    compute_normalized_width_stats,
 )
-from .utils import validate_conformal_inputs as _validate_conformal_inputs
-from .utils import validate_alpha as _validate_alpha
+from .utils import (
+    validate_conformal_inputs,
+    validate_alpha,
+)
 
 
 class ConformalPredictor:
@@ -271,7 +273,7 @@ class ConformalPredictor:
             Calibrated quantile value q
         """
         # Validate inputs (conformity functions will also validate, but catch early)
-        _validate_alpha(alpha)
+        validate_alpha(alpha)
 
         # Compute nonconformity scores using the appropriate method
         scores = self.compute_nonconformity_scores(predictions, ground_truth, mask)
@@ -482,12 +484,12 @@ def run_conformal_analysis(
         ValueError: If inputs are invalid or data is insufficient
     """
     # Prepare data using shared helper (eliminates duplication)
-    prepared = _prepare_conformal_data(
+    prepared = prepare_conformal_data(
         predictions_file, calib_ratio, use_fluid_mask, random_seed, aux_ratio=aux_ratio
     )
 
     # Validate inputs
-    _validate_conformal_inputs(
+    validate_conformal_inputs(
         prepared["predictions"],
         prepared["ground_truth"],
         alpha,
@@ -527,7 +529,7 @@ def run_conformal_analysis(
 
     # Optionally compute normalized width statistics
     if normalize_widths:
-        width_stats = _compute_normalized_width_stats(width_stats, prepared["data"])
+        width_stats = compute_normalized_width_stats(width_stats, prepared["data"])
 
     calib_stats = predictor.get_calibration_stats()
 
@@ -599,17 +601,17 @@ def run_alpha_sweep(
     """
     # Validate alpha values efficiently
     for alpha in alphas:
-        _validate_alpha(alpha)
+        validate_alpha(alpha)
 
     print(f"Running OPTIMIZED alpha sweep for {len(alphas)} values: {alphas}")
 
     # Prepare data using shared helper (eliminates duplication)
-    prepared = _prepare_conformal_data(
+    prepared = prepare_conformal_data(
         predictions_file, calib_ratio, use_fluid_mask, random_seed, aux_ratio=aux_ratio
     )
 
     # Validate inputs once
-    _validate_conformal_inputs(
+    validate_conformal_inputs(
         prepared["predictions"],
         prepared["ground_truth"],
         alphas[0],
@@ -669,7 +671,7 @@ def run_alpha_sweep(
 
         # Optionally compute normalized width statistics
         if normalize_widths:
-            width_stats = _compute_normalized_width_stats(width_stats, prepared["data"])
+            width_stats = compute_normalized_width_stats(width_stats, prepared["data"])
 
         # Compile results for this alpha
         result = {
@@ -707,7 +709,7 @@ def run_alpha_sweep_compare(
     use_fluid_mask: bool = True,
     modes: List[str] = None,
     random_seed: int = 42,
-    normalize_widths: bool = False,
+    normalize_widths: bool = True,  # Always compute for paper comparison
     conservative_margin: float = 0.01,
     aux_ratio: float = 0.0,
 ) -> List[Dict]:
@@ -736,7 +738,7 @@ def run_alpha_sweep_compare(
 
     # Validate inputs efficiently
     for alpha in alphas:
-        _validate_alpha(alpha)
+        validate_alpha(alpha)
 
     for mode in modes:
         if mode not in SUPPORTED_NONCONFORMITY_MODES:
@@ -749,12 +751,12 @@ def run_alpha_sweep_compare(
     print(f"Alphas: {alphas}")
 
     # Prepare data using shared helper (eliminates duplication)
-    prepared = _prepare_conformal_data(
+    prepared = prepare_conformal_data(
         predictions_file, calib_ratio, use_fluid_mask, random_seed, aux_ratio=aux_ratio
     )
 
     # Validate inputs once
-    _validate_conformal_inputs(
+    validate_conformal_inputs(
         prepared["predictions"],
         prepared["ground_truth"],
         alphas[0],
@@ -825,14 +827,10 @@ def run_alpha_sweep_compare(
             # Get width statistics
             width_stats = predictor.calculate_interval_widths()
 
-            # Optionally compute normalized width statistics
-            if normalize_widths:
-                width_stats = _compute_normalized_width_stats(
-                    width_stats, prepared["data"]
-                )
+            # Compute normalized width statistics (always enabled for paper comparison)
+            width_stats = compute_normalized_width_stats(width_stats, prepared["data"])
 
             # Store results for this mode-alpha combination
-            # Store results with normalized widths if requested
             result_dict = {
                 "coverage": float(coverage),
                 "q": float(q_value),
@@ -840,11 +838,10 @@ def run_alpha_sweep_compare(
                 "area": float(width_stats["area"]),
                 "valid_coverage": abs(coverage - (1 - alpha))
                 <= COVERAGE_WARNING_THRESHOLD,
+                "normalized_width": float(
+                    width_stats.get("normalized_width", width_stats["mean_width"])
+                ),
             }
-
-            # Add normalized width if computed
-            if normalize_widths and "normalized_width" in width_stats:
-                result_dict["normalized_width"] = float(width_stats["normalized_width"])
 
             row[mode] = result_dict
 

@@ -34,3 +34,37 @@ python cli.py flag_medium -a 0.1 -c
 
 Results saved to `results/conformal_preds/`. See [`conformal/README.md`](conformal/README.md) for details.
 
+## Plotting & Analysis
+
+Generate publication-quality figures from results:
+
+```bash
+# Plot geometry comparison (ℓ2, Mahalanobis, ℓ∞)
+python plot_results.py comparison -d cylinder_medium_noise
+
+# Plot adaptive CP (basic vs enhanced features)
+python plot_results.py adaptive -d cylinder_medium_noise
+
+# Plot everything
+python plot_results.py all -d cylinder_medium_noise
+```
+
+Figures saved to `results/figures/`.
+
+## Reproduce Paper Results
+
+Run all experiments from the paper:
+
+```bash
+# PowerShell
+.\reproduce_paper_results.ps1
+
+# Bash
+bash reproduce_paper_results.sh
+```
+
+Validate against paper claims:
+```bash
+python compare_with_paper.py
+```
+

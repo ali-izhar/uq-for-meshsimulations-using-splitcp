@@ -805,6 +805,11 @@ def run_boosted_conformal_analysis(
         },
     }
 
+    # Add normalized width statistics for paper comparison
+    from .data_utils import compute_normalized_width_stats
+
+    width_stats = compute_normalized_width_stats(width_stats, prepared["data"])
+
     # Compose results with consistent field names (match standard CP format)
     return {
         "alpha": alpha,
