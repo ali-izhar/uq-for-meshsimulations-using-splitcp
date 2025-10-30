@@ -34,7 +34,7 @@ We are still far away from the original paper, which trained on $1,200 * 600 = 7
 
 Looking at the loss curve, it is probably much better to trade off fewer epochs in favor of more data.
 
-![Test loss plot with more data (made via wandb)](data/plots/more_data_test_loss.png)
+![Test loss plot with more data (made via wandb)](https://github.com/BurgerAndreas/gnn-physics/blob/main/data/plots/more_data_test_loss.png)
 
 ### 1.3 - Including noise
 
@@ -45,7 +45,7 @@ The model is only trained to do single-step prediction: the current true velocit
 The idea is that adding noise during training imitates making predictions with imperfect inputs.
 
 Indeed, we see that adding noise during training can reduce the accumulation of error, at least for the timesteps 50-150.
-![Error accumulation with and without noise during training](data/plots/datasize_medium_50_150_rollout_noise.png)
+![Error accumulation with and without noise during training](https://github.com/BurgerAndreas/gnn-physics/blob/main/data/plots/datasize_medium_50_150_rollout_noise.png)
 
 ### 1.4 - Generalize to new trajectories
 

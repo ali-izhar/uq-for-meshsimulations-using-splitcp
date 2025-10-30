@@ -1,20 +1,14 @@
-# uq-for-meshsimulations-using-splitcp
+# Uncertainty Quantification Using Conformal Prediction for Mesh-Based Simulations
 
 Uncertainty quantification for mesh-based simulations using the Split Conformal Prediction framework, with spatially adaptive extensions and MeshGraphNet surrogates.
 
-## MeshGraphNet Surrogate Model
+## MeshGraphNet Surrogate Training
 
-The `meshgraph/` module contains a PyTorch re-implementation of [Learning Mesh-Based Simulation with Graph Networks](https://sites.google.com/view/meshgraphnets) for training GNN-based surrogate models on mesh simulations.
+The surrogate model training in `meshgraph/` is pretty standard MeshGraphNet implementation. For reference:
+- Original DeepMind: [meshgraphnets](https://github.com/google-deepmind/deepmind-research/blob/master/meshgraphnets/README.md)
+- NVIDIA's tutorial: [PhysicsNeMo MeshGraphNet](https://docs.nvidia.com/physicsnemo/latest/user-guide/model_architecture/meshgraphnet.html)
 
-**Quick Start:**
-```bash
-cd meshgraph/
+Our main research contribution is the **conformal prediction** framework built atop the meshgraphnet's predictions inside the `conformal/` module.
 
-# Train on cylinder_flow dataset
-python run_gnn.py +datasize=medium +noise=paper
+## Conformal Prediction
 
-# Train on flag_simple (3D) dataset
-python run_gnn.py +dataset=flag_simple
-```
-
-**Reference:** Adapted from [gnn-physics](https://github.com/BurgerAndreas/gnn-physics). See [`meshgraph/README.md`](meshgraph/README.md) and [`meshgraph/results.md`](meshgraph/results.md) for details.

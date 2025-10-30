@@ -2,7 +2,7 @@
 
 > This module is taken from [gnn-physics](https://github.com/BurgerAndreas/gnn-physics).
 
-Re-implementation of [Learning Mesh-Based Simulation with Graph Networks](https://sites.google.com/view/meshgraphnets) for `cylinder_flow` in PyTorch based on [this blog post](https://medium.com/stanford-cs224w/learning-mesh-based-flow-simulations-on-graph-networks-44983679cf2d).
+Re-implementation of [Learning Mesh-Based Simulation with Graph Networks](https://sites.google.com/view/meshgraphnets) for `cylinder_flow` and `flag_dataset` in PyTorch based on [this blog post](https://medium.com/stanford-cs224w/learning-mesh-based-flow-simulations-on-graph-networks-44983679cf2d).
 
 [Look at results.md for a summary!](results.md)
 
