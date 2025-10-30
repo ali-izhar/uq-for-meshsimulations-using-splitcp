@@ -1,0 +1,16 @@
+# @package _global_
+# Datasize override: large split sizes for multi-trajectory datasets.
+#
+# This configuration is designed for large-scale training with:
+# - Multiple training trajectories for better generalization
+# - Larger test set for robust evaluation
+# - Optimized settings for large datasets
+#
+# Intended to be composed over `conf/default.yaml`.
+training:
+  epochs: 3000 # Reduced from 5000 for faster training while maintaining quality
+  train_size: 5990 # Number of timesteps for training (10 trajectories × ~599 timesteps each)
+  test_size: 2995 # Number of timesteps for testing (5 trajectories × ~599 timesteps each)
+  batch_size: 128 # Optimized batch size for large datasets
+  num_workers: 16 # Optimized worker count for data loading
+  prefetch_factor: 4 # Optimized prefetching

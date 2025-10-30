@@ -1,0 +1,5 @@
+# @package _global_
+# Noise override matching typical settings from the MeshGraphNets paper.
+data:
+  noise_scale: 0.02  # Stddev of Gaussian noise applied to velocities during training
+  noise_gamma: 1.0   # Target mixing factor; 1.0 keeps targets unchanged

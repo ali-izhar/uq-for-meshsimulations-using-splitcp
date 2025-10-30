@@ -1,0 +1,50 @@
+############################################################
+# MeshGraphNets default training configuration (Hydra)
+#
+# Purpose:
+# - Baseline config used by `meshgraph/run_gnn.py` via Hydra.
+# - Can be composed/overridden with files in `conf/dataset`,
+#   `conf/datasize`, `conf/noise`, and `conf/testset`.
+#
+# Usage examples (CLI overrides):
+# - python meshgraph/run_gnn.py training.epochs=1000 device=cpu
+# - python meshgraph/run_gnn.py dataset=stanford datasize=medium noise=paper
+# - python meshgraph/run_gnn.py testset=different
+#
+# Sections:
+# - model: GNN architecture hyperparameters
+# - training: optimization and split sizes
+# - data: dataset selection and noise injection
+# - device/rseed: runtime device and seeds
+# - job/config metadata populated by Hydra at runtime
+############################################################
+model:
+  model_type: meshgraphnet  # Model class identifier; only 'meshgraphnet' supported in this repo
+  num_layers: 10            # Number of message-passing blocks
+  hidden_dim: 10            # Hidden dimension for MLPs inside the network
+training:
+  epochs: 5000              # Total optimization epochs
+  weight_decay: 5e-4        # L2 regularization (Adam)
+  lr: 0.001                 # Learning rate (Adam)
+  batch_size: 16            # Graph batch size for torch_geometric DataLoader
+  train_size: 45            # Number of graph timesteps used for training
+  test_size: 10             # Number of graph timesteps used for testing
+  save_best_model: True     # Persist best-by-test-loss checkpoint periodically
+  # load previous checkpoint for the same config, if it exits
+  resume_checkpoint: True   # Resume from checkpoint if matching name exists
+data:
+  use_stanford_data: False  # If True, prefer preprocessed Stanford cylinder dataset
+  single_traj: True         # Sample from a single trajectory only (when applicable)
+  # different timesteps but same trajectory
+  train_test_same_traj: True  # If True, split train/test within the same trajectory
+  noise_scale: 0.0          # Stddev of Gaussian noise added to velocity during training
+  noise_gamma: 1.0          # Mix factor for adding noise to targets (1.0 = no target noise)
+  datapath: cylinder_flow_pyg/train.pt  # Relative to dataset root in `gnn/dirs.py`
+device: cuda                # Target device: 'cuda' or 'cpu'
+rseed: 0                    # Global seed for torch, numpy, and Python RNGs
+# job_name: ${hydra.job.name}
+# config_name: ${hydra.job.config_name}
+# override_dirname: ${hydra.job.override_dirname}
+job_name: ${hydra:job.name}          # Hydra-populated
+config_name: ${hydra:job.config_name}  # Hydra-populated
+override_dirname: ${hydra:job.override_dirname}  # Hydra-populated

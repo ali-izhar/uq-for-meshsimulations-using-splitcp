@@ -1,0 +1,8 @@
+# @package _global_
+# Dataset override: use preprocessed Stanford cylinder-flow subset.
+#
+# This file is composed on top of `conf/default.yaml` to switch the
+# dataset source and datapath.
+data:
+  use_stanford_data: True   # Enable Stanford-prepared data
+  datapath: cylinder_flow_stanford/meshgraphnets_miniset5traj_vis.pt  # Relative to dataset root

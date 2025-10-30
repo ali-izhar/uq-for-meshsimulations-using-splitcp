@@ -1,0 +1,6 @@
+# @package _global_
+# Testset override: evaluate on a different trajectory than training.
+# Composes with `conf/default.yaml` to flip data-splitting behavior.
+data:
+  train_test_same_traj: False  # Train and test on distinct trajectories
+  single_traj: False           # Allow sampling from multiple trajectories for training

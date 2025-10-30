@@ -1,0 +1,33 @@
+# @package _global_
+# Dataset override: flag_simple dataset configuration.
+#
+# This configuration is designed for the flag_simple dataset containing:
+# - 3D fluid simulation with flag dynamics
+# - 12 node features (3D velocity + 9 node types)
+# - 3D velocity targets (acceleration)
+# - Single trajectory with 300 timesteps
+#
+# This file is composed on top of `conf/default.yaml` to configure
+# the dataset source and flag-specific handling.
+
+# Override the data section completely
+data:
+  use_stanford_data: false # Use our converted flag data
+  single_traj: true # Sample from single trajectory
+  train_test_same_traj: true # Train and test on same trajectory (temporal split)
+  noise_scale: 0.0 # No noise by default
+  noise_gamma: 1.0 # No target noise
+  datapath: flag/trajectory_Flag300.pt # Path to flag dataset (relative to DATASET_DIR)
+  dataset_type: flag_simple # Explicitly specify dataset type
+
+# Flag-specific training parameters
+training:
+  train_size: 200 # Number of timesteps for training (out of 300)
+  test_size: 50 # Number of timesteps for testing
+  batch_size: 1 # Flag dataset typically uses smaller batch sizes due to memory
+  epochs: 2000 # Fewer epochs needed for single trajectory
+
+# Model adjustments for 3D simulation
+model:
+  hidden_dim: 128 # Larger hidden dimension for 3D complexity
+  num_layers: 10 # Keep same number of message passing layers

@@ -1,0 +1,6 @@
+# @package _global_
+# Datasize override: small split sizes.
+# Intended to be composed over `conf/default.yaml`.
+training:
+  train_size: 85  # Number of timesteps for training
+  test_size: 15   # Number of timesteps for testing
