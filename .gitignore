@@ -211,3 +211,9 @@ datasets/
 
 # archive
 archive/
+
+# results
+results/
+
+# checkpoints
+checkpoints/
