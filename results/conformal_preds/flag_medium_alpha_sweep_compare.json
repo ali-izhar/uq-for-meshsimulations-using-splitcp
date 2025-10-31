@@ -1,0 +1,170 @@
+[
+  {
+    "alpha": 0.05,
+    "target_coverage": 0.95,
+    "l2": {
+      "coverage": 0.962282815472416,
+      "q": 3.7388482093811035,
+      "mean_width": 7.477696418762207,
+      "area": 43.916279511095304,
+      "valid_coverage": true,
+      "normalized_width": 0.14449180662631989
+    },
+    "mahalanobis": {
+      "coverage": 0.9490171211160431,
+      "q": 3.1845026827530165,
+      "mean_width": 6.369005365506033,
+      "area": 26.618108504682116,
+      "valid_coverage": true,
+      "normalized_width": 0.12306851893663406
+    },
+    "box": {
+      "coverage": 0.9695370957514268,
+      "q": 3.5359888076782227,
+      "mean_width": 7.071977615356445,
+      "area": 50.012867392102635,
+      "valid_coverage": true,
+      "normalized_width": 0.13665208220481873
+    }
+  },
+  {
+    "alpha": 0.1,
+    "target_coverage": 0.9,
+    "l2": {
+      "coverage": 0.9425364616360178,
+      "q": 3.3618125915527344,
+      "mean_width": 6.723625183105469,
+      "area": 35.50560127496924,
+      "valid_coverage": false,
+      "normalized_width": 0.1299208551645279
+    },
+    "mahalanobis": {
+      "coverage": 0.8929359543436906,
+      "q": 2.366261613424099,
+      "mean_width": 4.732523226848198,
+      "area": 14.696687840576526,
+      "valid_coverage": true,
+      "normalized_width": 0.09144672751426697
+    },
+    "box": {
+      "coverage": 0.9472542802790108,
+      "q": 3.1747753620147705,
+      "mean_width": 6.349550724029541,
+      "area": 40.31679439702407,
+      "valid_coverage": false,
+      "normalized_width": 0.12269259989261627
+    }
+  },
+  {
+    "alpha": 0.15,
+    "target_coverage": 0.85,
+    "l2": {
+      "coverage": 0.9077869372225745,
+      "q": 2.9256327152252197,
+      "mean_width": 5.8512654304504395,
+      "area": 26.88991814553311,
+      "valid_coverage": false,
+      "normalized_width": 0.1130642220377922
+    },
+    "mahalanobis": {
+      "coverage": 0.8478249841471148,
+      "q": 2.108537581237192,
+      "mean_width": 4.217075162474384,
+      "area": 11.669618136326156,
+      "valid_coverage": true,
+      "normalized_width": 0.08148670196533203
+    },
+    "box": {
+      "coverage": 0.908154724159797,
+      "q": 2.583615303039551,
+      "mean_width": 5.167230606079102,
+      "area": 26.7002721364006,
+      "valid_coverage": false,
+      "normalized_width": 0.09984658658504486
+    }
+  },
+  {
+    "alpha": 0.2,
+    "target_coverage": 0.8,
+    "l2": {
+      "coverage": 0.8677996195307546,
+      "q": 2.462390661239624,
+      "mean_width": 4.924781322479248,
+      "area": 19.048631637721588,
+      "valid_coverage": false,
+      "normalized_width": 0.09516172856092453
+    },
+    "mahalanobis": {
+      "coverage": 0.8195688015218769,
+      "q": 1.9693746768908482,
+      "mean_width": 3.9387493537816964,
+      "area": 10.180067353994591,
+      "valid_coverage": true,
+      "normalized_width": 0.07610859721899033
+    },
+    "box": {
+      "coverage": 0.8676601141407736,
+      "q": 2.1470069885253906,
+      "mean_width": 4.294013977050781,
+      "area": 18.438556035107467,
+      "valid_coverage": false,
+      "normalized_width": 0.08297339081764221
+    }
+  },
+  {
+    "alpha": 0.25,
+    "target_coverage": 0.75,
+    "l2": {
+      "coverage": 0.8311477488902981,
+      "q": 2.1494438648223877,
+      "mean_width": 4.298887729644775,
+      "area": 14.514500267060424,
+      "valid_coverage": false,
+      "normalized_width": 0.08306756615638733
+    },
+    "mahalanobis": {
+      "coverage": 0.7940773620798985,
+      "q": 1.8465282766576339,
+      "mean_width": 3.6930565533152677,
+      "area": 8.94964642724783,
+      "valid_coverage": false,
+      "normalized_width": 0.07136106491088867
+    },
+    "box": {
+      "coverage": 0.8252251109701966,
+      "q": 1.8494771718978882,
+      "mean_width": 3.6989543437957764,
+      "area": 13.682263237485643,
+      "valid_coverage": false,
+      "normalized_width": 0.07147502899169922
+    }
+  },
+  {
+    "alpha": 0.3,
+    "target_coverage": 0.7,
+    "l2": {
+      "coverage": 0.7669752694990488,
+      "q": 1.83539617061615,
+      "mean_width": 3.6707923412323,
+      "area": 10.583017522639455,
+      "valid_coverage": false,
+      "normalized_width": 0.0709308534860611
+    },
+    "mahalanobis": {
+      "coverage": 0.7354597336715282,
+      "q": 1.6832759686558787,
+      "mean_width": 3.3665519373117574,
+      "area": 7.43711675277868,
+      "valid_coverage": false,
+      "normalized_width": 0.06505201011896133
+    },
+    "box": {
+      "coverage": 0.7653772986683577,
+      "q": 1.5588184595108032,
+      "mean_width": 3.1176369190216064,
+      "area": 9.719659958846535,
+      "valid_coverage": false,
+      "normalized_width": 0.06024220958352089
+    }
+  }
+]

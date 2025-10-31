@@ -209,11 +209,5 @@ __marimo__/
 # datasets
 datasets/
 
-# archive
-archive/
-
-# results
-results/
-
 # checkpoints
 checkpoints/
