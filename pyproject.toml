@@ -1,0 +1,17 @@
+[project]
+name = "conformal-meshuq-new"
+version = "0.0.0"
+description = "Post-hoc split conformal prediction on MeshGraphNet rollouts."
+readme = "README.md"
+requires-python = ">=3.12"
+dependencies = [
+  "numpy>=2.0",
+  "matplotlib>=3.8",
+  "scikit-learn>=1.4",
+  "xgboost>=2.0",
+]
+
+[tool.uv]
+# This environment is for conformal + plotting utilities.
+# MeshGraphNet training/inference (DeepMind TF1 stack) is managed separately (container).
+

@@ -1,0 +1,9 @@
+# Notes:
+# - This intentionally excludes DeepMind/TF1 MeshGraphNet training/inference requirements
+#   (those are handled in the separate TF1 container workflow).
+# - The pinned lower bounds reflect the currently used environment (Python 3.12).
+
+numpy>=2.0
+matplotlib>=3.8
+scikit-learn>=1.4
+xgboost>=2.0

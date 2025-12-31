@@ -1,0 +1,1 @@
+"""Rollout-only comparison utilities."""
