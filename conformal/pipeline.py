@@ -12,7 +12,14 @@ import numpy as np
 
 from conformal.features import build_features, default_time_index
 from conformal.io import infer_pred_gt_keys, load_rollouts, get_mesh_pos
-from conformal.models import SigmaModel, SigmaPredictor, fit_covariance, fit_sigma_model
+from conformal.models import (
+    SigmaModel,
+    SigmaPredictor,
+    fit_covariance,
+    fit_sigma_model,
+    ComponentwiseSigmaPredictor,
+    fit_componentwise_sigma_model,
+)
 from conformal.quantiles import conformal_quantile
 from conformal.scores import mahalanobis_scores
 
@@ -174,10 +181,15 @@ def run_conformal_pipeline(
     # ---------- AUX: fit (or reuse) Sigma and sigma(x)
     aux_counts_cov = None
     aux_counts_sigma = None
+    componentwise_pred = None  # Will be set below
     if reuse_aux_from:
         reuse_dir = Path(reuse_aux_from)
         sigma = SigmaModel.load(reuse_dir)
         sigma_pred = SigmaPredictor.load(reuse_dir / "sigma_model.pkl")
+        # Try to load componentwise model if it exists
+        componentwise_path = reuse_dir / "componentwise_sigma_model.pkl"
+        if componentwise_path.exists():
+            componentwise_pred = ComponentwiseSigmaPredictor.load(componentwise_path)
         # best-effort: read counts from existing summary.json
         summ = reuse_dir / "summary.json"
         if summ.exists():
@@ -192,6 +204,8 @@ def run_conformal_pipeline(
         sigma.save(out)
         sigma_model_path = out / "sigma_model.pkl"
         sigma_pred.save(sigma_model_path)
+        if componentwise_pred is not None:
+            componentwise_pred.save(out / "componentwise_sigma_model.pkl")
     else:
         aux = flatten_rollouts(
             aux_pkl, max_samples=max_aux_samples_cov, seed=seed, feature_set=feature_set
@@ -233,6 +247,18 @@ def run_conformal_pipeline(
         sigma_model_path = out / "sigma_model.pkl"
         sigma_pred.save(sigma_model_path)
 
+        # Fit componentwise sigma models (one per output dimension)
+        componentwise_pred = fit_componentwise_sigma_model(
+            X=aux_for_sigma["X"],
+            residuals=aux_for_sigma["res"],
+            method=sigma_model,
+            lam=sigma_model_lam,
+            seed=seed + 100,  # Different seed for componentwise
+            sigma_cap_quantile=sigma_cap_quantile,
+        )
+        componentwise_model_path = out / "componentwise_sigma_model.pkl"
+        componentwise_pred.save(componentwise_model_path)
+
     # ---------- CAL: compute quantiles
     cal_grouping = str(cal_grouping).lower()
     if cal_grouping not in (
@@ -254,6 +280,12 @@ def run_conformal_pipeline(
     cal_mah = mahalanobis_scores(cal["res"], sigma.Sigma_inv)
     cal_sigma_x = sigma_pred.predict_sigma(cal["X"], sigma_min=sigma_min)
     cal_adapt = cal_l2 / cal_sigma_x
+    # Hybrid: Mahalanobis + Adaptive (global correlation structure + local scale)
+    cal_mah_adapt = cal_mah / cal_sigma_x
+    # Componentwise adaptive: ||r ⊘ σ(x)||₂ where σ(x) ∈ ℝ^d
+    cal_cw_adapt = None
+    if componentwise_pred is not None:
+        cal_cw_adapt = componentwise_pred.compute_scores(cal["res"], cal["X"], sigma_min=sigma_min)
 
     if cal_grouping != "none":
         traj_id = np.asarray(cal["traj_id"], dtype=np.int64).reshape(-1)
@@ -288,12 +320,17 @@ def run_conformal_pipeline(
         cal_linf = _group_max(cal_linf, keys)
         cal_mah = _group_max(cal_mah, keys)
         cal_adapt = _group_max(cal_adapt, keys)
+        cal_mah_adapt = _group_max(cal_mah_adapt, keys)
+        if cal_cw_adapt is not None:
+            cal_cw_adapt = _group_max(cal_cw_adapt, keys)
 
     thresholds: Dict[str, Dict[str, float]] = {
         "l2": {},
         "linf": {},
         "mah": {},
         "adapt": {},
+        "mah_adapt": {},  # Hybrid: Mahalanobis + Adaptive
+        "cw_adapt": {},  # Componentwise adaptive
     }
     for a in alphas:
         a_str = str(a)
@@ -301,6 +338,9 @@ def run_conformal_pipeline(
         thresholds["linf"][a_str] = conformal_quantile(cal_linf, alpha=a)
         thresholds["mah"][a_str] = conformal_quantile(cal_mah, alpha=a)
         thresholds["adapt"][a_str] = conformal_quantile(cal_adapt, alpha=a)
+        thresholds["mah_adapt"][a_str] = conformal_quantile(cal_mah_adapt, alpha=a)
+        if cal_cw_adapt is not None:
+            thresholds["cw_adapt"][a_str] = conformal_quantile(cal_cw_adapt, alpha=a)
 
     (out / "thresholds.json").write_text(json.dumps(thresholds, indent=2))
 
@@ -315,6 +355,14 @@ def run_conformal_pipeline(
     ev_linf = ev["linf"]
     ev_mah = mahalanobis_scores(ev["res"], sigma.Sigma_inv)
     ev_sigma_x = sigma_pred.predict_sigma(ev["X"], sigma_min=sigma_min)
+    # Hybrid: Mahalanobis + Adaptive scores for evaluation
+    ev_mah_adapt = ev_mah / ev_sigma_x
+    # Componentwise adaptive scores for evaluation
+    ev_cw_adapt = None
+    ev_cw_sigma_vec = None
+    if componentwise_pred is not None:
+        ev_cw_adapt = componentwise_pred.compute_scores(ev["res"], ev["X"], sigma_min=sigma_min)
+        ev_cw_sigma_vec = componentwise_pred.predict_sigma_vec(ev["X"], sigma_min=sigma_min)
 
     results = {
         # Prefer "eval" terminology; include "test" for backwards compatibility.
@@ -340,9 +388,13 @@ def run_conformal_pipeline(
             "test_samples": int(ev["res"].shape[0]),
         },
         "thresholds": thresholds,
-        "coverage": {"l2": {}, "linf": {}, "mah": {}, "adapt": {}},
-        "avg_radius": {"l2": {}, "linf": {}, "mah": {}, "adapt": {}},
+        "coverage": {"l2": {}, "linf": {}, "mah": {}, "adapt": {}, "mah_adapt": {}, "cw_adapt": {}},
+        "avg_radius": {"l2": {}, "linf": {}, "mah": {}, "adapt": {}, "mah_adapt": {}, "cw_adapt": {}},
     }
+
+    # Compute determinant factor for Mahalanobis width normalization
+    d = sigma.Sigma.shape[0]
+    det_factor = float(np.linalg.det(sigma.Sigma) ** (1.0 / (2 * d)))
 
     for a in alphas:
         a_str = str(a)
@@ -351,22 +403,41 @@ def run_conformal_pipeline(
         q_linf = thresholds["linf"][a_str]
         q_mah = thresholds["mah"][a_str]
         q_adapt = thresholds["adapt"][a_str]
+        q_mah_adapt = thresholds["mah_adapt"][a_str]
 
         cov_l2 = float(np.mean(ev_l2 <= q_l2))
         cov_linf = float(np.mean(ev_linf <= q_linf))
         cov_mah = float(np.mean(ev_mah <= q_mah))
         cov_adapt = float(np.mean(ev_l2 <= (q_adapt * ev_sigma_x)))
+        # Hybrid coverage: score = mah/sigma(x), so threshold is q_mah_adapt * sigma(x)
+        cov_mah_adapt = float(np.mean(ev_mah <= (q_mah_adapt * ev_sigma_x)))
 
         results["coverage"]["l2"][a_str] = cov_l2
         results["coverage"]["linf"][a_str] = cov_linf
         results["coverage"]["mah"][a_str] = cov_mah
         results["coverage"]["adapt"][a_str] = cov_adapt
+        results["coverage"]["mah_adapt"][a_str] = cov_mah_adapt
 
         # Radius summaries (Mah is a radius in whitened space; included for completeness)
         results["avg_radius"]["l2"][a_str] = float(q_l2)
         results["avg_radius"]["linf"][a_str] = float(q_linf)
-        results["avg_radius"]["mah"][a_str] = float(q_mah)
+        results["avg_radius"]["mah"][a_str] = float(q_mah * det_factor)
         results["avg_radius"]["adapt"][a_str] = float(np.mean(q_adapt * ev_sigma_x))
+        # Hybrid: ellipsoid with spatially-varying scale
+        # Width ~ q_mah_adapt * sigma(x) * det(Sigma)^{1/(2d)}
+        results["avg_radius"]["mah_adapt"][a_str] = float(
+            np.mean(q_mah_adapt * ev_sigma_x) * det_factor
+        )
+
+        # Componentwise adaptive: coverage and width
+        if ev_cw_adapt is not None and a_str in thresholds["cw_adapt"]:
+            q_cw = thresholds["cw_adapt"][a_str]
+            # Coverage: score ≤ q means ||r ⊘ σ(x)||₂ ≤ q
+            cov_cw = float(np.mean(ev_cw_adapt <= q_cw))
+            results["coverage"]["cw_adapt"][a_str] = cov_cw
+            # Width: geometric mean of semi-axes = q * (∏ᵢ σᵢ(x))^{1/d}
+            geom_mean_sigma = np.exp(np.mean(np.log(ev_cw_sigma_vec), axis=-1))
+            results["avg_radius"]["cw_adapt"][a_str] = float(np.mean(q_cw * geom_mean_sigma))
 
     (out / "summary.json").write_text(json.dumps(results, indent=2))
     (out / "features_meta.json").write_text(

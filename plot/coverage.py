@@ -41,7 +41,8 @@ METHOD_CONFIG = {
     "l2": {"label": "L2", "color": "#E69F00", "marker": "o"},
     "linf": {"label": r"L$_\infty$ Box", "color": "#56B4E9", "marker": "^"},
     "mah": {"label": "Mahalanobis", "color": "#0072B2", "marker": "s"},
-    "adapt": {"label": "Adaptive Scaling", "color": "#D55E00", "marker": "D"},
+    "adapt": {"label": "Adaptive", "color": "#D55E00", "marker": "D"},
+    "cw_adapt": {"label": "CW-Adaptive", "color": "#009E73", "marker": "v"},
 }
 
 
@@ -114,8 +115,8 @@ def fig_coverage_efficiency(
     rows = load_table_csv(csv_path)
 
     # Figure setup: 1x2 grid (extra bottom margin for footnote)
-    fig, (ax_cov, ax_eff) = plt.subplots(1, 2, figsize=(7.0, 3.0), facecolor="white")
-    fig.subplots_adjust(wspace=0.35, left=0.09, right=0.98, bottom=0.18, top=0.88)
+    fig, (ax_cov, ax_eff) = plt.subplots(1, 2, figsize=(7.0, 2.5), facecolor="white")
+    fig.subplots_adjust(wspace=0.35, left=0.09, right=0.98, bottom=0.20, top=0.88)
 
     # === Left panel: Coverage Reliability ===
     # Perfect calibration line and tolerance band
@@ -132,8 +133,12 @@ def fig_coverage_efficiency(
         label=r"$\pm$2% Tolerance",
     )
 
+    # Determine available methods
+    available_methods = list(set(r["method"] for r in rows))
+    plot_methods = [m for m in METHOD_CONFIG.keys() if m in available_methods]
+
     # Plot each method
-    for method in ["l2", "linf", "mah", "adapt"]:
+    for method in plot_methods:
         cfg = METHOD_CONFIG[method]
         alpha, coverage, _, _ = extract_method_data(rows, method, dim=dim)
         x = 1.0 - alpha  # Target confidence
@@ -152,12 +157,15 @@ def fig_coverage_efficiency(
     ax_cov.set_title("Coverage Reliability", fontsize=10, fontweight="medium")
     ax_cov.set_xlim(0.68, 0.97)
     ax_cov.set_ylim(0.68, 0.97)
+    # Use 0.1 intervals for more compact vertical display
+    ax_cov.set_xticks([0.7, 0.8, 0.9])
+    ax_cov.set_yticks([0.7, 0.8, 0.9])
     ax_cov.legend(fontsize=7, loc="upper left", framealpha=0.9)
     ax_cov.grid(True, alpha=0.3, linewidth=0.5)
 
     # === Right panel: Width Efficiency ===
     # Width = V^(1/d) is a linear-scale metric that shows Adaptive's advantage clearly.
-    for method in ["l2", "linf", "mah", "adapt"]:
+    for method in plot_methods:
         cfg = METHOD_CONFIG[method]
         alpha, _, _, width = extract_method_data(rows, method, dim=dim)
         x = 1.0 - alpha  # Target confidence
@@ -176,6 +184,8 @@ def fig_coverage_efficiency(
     ax_eff.set_title("Width Efficiency", fontsize=10, fontweight="medium")
     ax_eff.set_yscale("log")
     ax_eff.set_xlim(0.68, 0.97)
+    # Use 0.1 intervals for more compact display
+    ax_eff.set_xticks([0.7, 0.8, 0.9])
     ax_eff.legend(fontsize=7, loc="upper left", framealpha=0.9)
     ax_eff.grid(True, alpha=0.3, linewidth=0.5, which="both")
 

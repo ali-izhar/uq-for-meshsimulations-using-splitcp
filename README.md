@@ -6,9 +6,13 @@ Code and artifacts for **post-hoc split conformal prediction** on **autoregressi
 
 1. **Coverage is approximately valid** despite temporal/spatial dependence when calibration and evaluation share rollout dynamics.
 
-2. **Adaptive scaling** produces tighter bounds in low-error regions.
+2. **Efficiency depends on output structure**: Mahalanobis achieves smallest prediction sets for velocity fields (CylinderFlow), while CW-Adaptive is most efficient for position fields (Flag).
 
-3. **Temporal dependence** (ACF lag-1 ≈ 0.99) and **spatial dependence** (Moran's I ≈ 0.9) are pervasive.
+3. **CW-Adaptive** (component-wise adaptive scaling) provides tighter per-component bounds and best overall efficiency on Flag (72% width vs. L2 baseline at α=0.05).
+
+4. **Temporal dependence** (ACF lag-1 ≈ 0.99) and **spatial dependence** (Moran's I ≈ 0.9) are pervasive.
+
+5. **Scale**: Validated on ~75M samples (CylinderFlow) and ~31M samples (Flag).
 
 
 ## Overview
@@ -17,10 +21,10 @@ We study how split conformal prediction behaves when data come from **dependent,
 
 ### Datasets
 
-| Dataset | Domain | Output | Mesh Nodes | Timesteps |
-|---------|--------|--------|------------|-----------|
-| **CylinderFlow** | CFD (2D) | Velocity (m/s) | ~1,900 | 600 |
-| **Flag** | Cloth (3D) | Position (m) | ~1,800 | 400 |
+| Dataset | Domain | Output | Mesh Nodes | Timesteps | Eval Samples |
+|---------|--------|--------|------------|-----------|--------------|
+| **CylinderFlow** | CFD (2D) | Velocity (m/s) | ~1,900 | 400 | 74.7M |
+| **Flag** | Cloth (3D) | Position (m) | ~1,800 | 200 | 31.3M |
 
 <img src="assets/temporal_grid.png" width="100%">
 
@@ -32,6 +36,7 @@ We study how split conformal prediction behaves when data come from **dependent,
 | **L∞ Box** | $s = \|r\|_\infty$ | Hypercube (constant half-width) |
 | **Mahalanobis** | $s = \sqrt{r^\top \Sigma^{-1} r}$ | Ellipsoid (learned covariance) |
 | **Adaptive Scaling** | $s = \|r\|_2 / \sigma(x)$ | Sphere (spatially-varying radius) |
+| **CW-Adaptive** | $s_j = \|r_j\| / \sigma_j(x)$ | Box (per-component adaptive width) |
 
 
 ## Results
@@ -92,8 +97,9 @@ Effective radius normalized by L2 baseline:
 </table>
 
 - **L2 Isotropic**: Constant radius
-- **Mahalanobis**: Constant effective radius (accounts for correlation)
+- **Mahalanobis**: Constant effective radius (accounts for correlation) — best for CylinderFlow
 - **Adaptive**: Spatially-varying radius
+- **CW-Adaptive**: Per-component adaptive width — best for Flag
 
 
 ## Quick Start

@@ -108,6 +108,163 @@ class CappedSigmaPredictor(SigmaPredictor):
         return np.minimum(s, float(self.sigma_cap))
 
 
+class ComponentwiseSigmaPredictor:
+    """
+    Componentwise adaptive: learns σ_i(x) for each output dimension i.
+
+    Instead of scalar σ(x), this learns a vector σ(x) ∈ ℝ^d where each component
+    has its own spatial scale function. This captures per-component heteroscedasticity
+    without assuming correlations between components.
+
+    Score: ||r ⊘ σ(x)||₂ = √(Σᵢ (rᵢ/σᵢ(x))²)
+
+    This produces axis-aligned ellipsoids with spatially-varying semi-axes,
+    which is more expressive than scalar adaptive (spheres) but simpler and
+    more robust than full Σ(x) (general ellipsoids).
+    """
+
+    def __init__(self, component_models: list, d: int, sigma_caps: Optional[list] = None):
+        """
+        Args:
+            component_models: List of d SigmaPredictor instances, one per component
+            d: Output dimension (2 for CylinderFlow, 3 for Flag)
+            sigma_caps: Optional list of d cap values for each component
+        """
+        self.component_models = component_models
+        self.d = d
+        self.sigma_caps = sigma_caps
+
+    def predict_sigma_vec(self, X: np.ndarray, sigma_min: float = 1e-6) -> np.ndarray:
+        """
+        Predict per-component sigma values.
+
+        Args:
+            X: Features array (M, F)
+            sigma_min: Minimum sigma value
+
+        Returns:
+            sigma_vec: Array of shape (M, d) with per-component scales
+        """
+        M = X.shape[0]
+        sigma_vec = np.zeros((M, self.d), dtype=np.float64)
+        for i, model in enumerate(self.component_models):
+            sigma_vec[:, i] = model.predict_sigma(X, sigma_min=sigma_min)
+            if self.sigma_caps is not None and self.sigma_caps[i] is not None:
+                sigma_vec[:, i] = np.minimum(sigma_vec[:, i], self.sigma_caps[i])
+        return sigma_vec
+
+    def compute_scores(self, residuals: np.ndarray, X: np.ndarray, sigma_min: float = 1e-6) -> np.ndarray:
+        """
+        Compute componentwise adaptive scores: ||r ⊘ σ(x)||₂
+
+        Args:
+            residuals: Array of shape (M, d)
+            X: Features array (M, F)
+            sigma_min: Minimum sigma value
+
+        Returns:
+            scores: Array of shape (M,)
+        """
+        sigma_vec = self.predict_sigma_vec(X, sigma_min=sigma_min)
+        normalized = residuals / sigma_vec  # (M, d)
+        return np.linalg.norm(normalized, axis=-1)  # (M,)
+
+    def compute_width(self, q: float, X: np.ndarray, sigma_min: float = 1e-6) -> np.ndarray:
+        """
+        Compute effective width for each sample: q * (∏ᵢ σᵢ(x))^{1/d}
+
+        This is the geometric mean of the semi-axes, giving a comparable
+        "effective radius" metric to other methods.
+
+        Args:
+            q: Calibrated quantile threshold
+            X: Features array (M, F)
+            sigma_min: Minimum sigma value
+
+        Returns:
+            widths: Array of shape (M,)
+        """
+        sigma_vec = self.predict_sigma_vec(X, sigma_min=sigma_min)
+        # Geometric mean of component sigmas
+        geom_mean = np.exp(np.mean(np.log(sigma_vec), axis=-1))
+        return q * geom_mean
+
+    def save(self, path: Union[str, Path]) -> None:
+        with open(Path(path), "wb") as f:
+            pickle.dump(self, f)
+
+    @staticmethod
+    def load(path: Union[str, Path]) -> "ComponentwiseSigmaPredictor":
+        with open(Path(path), "rb") as f:
+            obj = pickle.load(f)
+        if not isinstance(obj, ComponentwiseSigmaPredictor):
+            raise TypeError(f"Loaded object is not a ComponentwiseSigmaPredictor: {type(obj)}")
+        return obj
+
+
+def fit_componentwise_sigma_model(
+    X: np.ndarray,
+    residuals: np.ndarray,
+    method: str = "xgboost",
+    lam: float = 1e-3,
+    y_eps: float = 1e-8,
+    seed: int = 0,
+    sigma_cap_quantile: Optional[float] = None,
+) -> ComponentwiseSigmaPredictor:
+    """
+    Fit componentwise σ(x) models: one model per output dimension.
+
+    Args:
+        X: Features array (M, F)
+        residuals: Residuals array (M, d)
+        method: Model type ('xgboost', 'sklearn_hgb', etc.)
+        lam: Regularization for ridge
+        y_eps: Small constant added before log
+        seed: Random seed
+        sigma_cap_quantile: Optional quantile for capping (e.g., 0.98)
+
+    Returns:
+        ComponentwiseSigmaPredictor with d fitted models
+    """
+    X = np.asarray(X, dtype=np.float64)
+    res = np.asarray(residuals, dtype=np.float64)
+    if res.ndim != 2:
+        raise ValueError(f"residuals must be (M, d), got {res.shape}")
+    M, d = res.shape
+    if X.shape[0] != M:
+        raise ValueError(f"X rows {X.shape[0]} != residuals rows {M}")
+
+    component_models = []
+    sigma_caps = []
+
+    for i in range(d):
+        # Fit model for component i using |r_i| as target
+        abs_ri = np.abs(res[:, i])
+        model = fit_sigma_model(
+            X=X,
+            y_l2=abs_ri,  # Note: using |r_i|, not ||r||
+            method=method,
+            lam=lam,
+            y_eps=y_eps,
+            seed=seed + i,  # Different seed per component
+        )
+        component_models.append(model)
+
+        # Compute cap if requested
+        if sigma_cap_quantile is not None:
+            sigma_pred = model.predict_sigma(X, sigma_min=1e-6)
+            cap = float(np.quantile(sigma_pred, sigma_cap_quantile))
+            sigma_caps.append(cap)
+        else:
+            sigma_caps.append(None)
+
+    return ComponentwiseSigmaPredictor(
+        component_models=component_models,
+        d=d,
+        sigma_caps=sigma_caps if sigma_cap_quantile is not None else None,
+    )
+
+
 @dataclass
 class RidgeLogSigma(SigmaPredictor):
     """Ridge regression on log(||r||2) with closed-form solution."""

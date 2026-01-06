@@ -4,13 +4,19 @@ Empirical split conformal prediction on MeshGraphNet rollout `.pkl` files.
 
 - Empirical coverages on spatiotemporal rollout data (not i.i.d.)
 - Conformal quantile: $k=\lceil(n+1)(1-\alpha)\rceil$
+- **Scale**: ~75M samples (CylinderFlow), ~31M samples (Flag)
+
+## Key Findings
+
+- **Mahalanobis** achieves smallest prediction sets for CylinderFlow (velocity field with correlated components)
+- **CW-Adaptive** achieves smallest prediction sets for Flag (72% width vs L2 baseline at α=0.05)
 
 ## Configurations
 
-| Dataset | Output Directory | Sigma Model | Sigma Cap |
-|---------|-----------------|-------------|-----------|
-| **Cylinder** | `_out_cylinder_200k_big_inregime_xgbq_physfull` | XGBoost | None |
-| **Flag** | `_out_flag_200k_big_inregime_xgboost_sigcap098` | XGBoost | 0.98 |
+| Dataset | Output Directory | Sigma Model | Sigma Cap | Eval Samples |
+|---------|-----------------|-------------|-----------|--------------|
+| **Cylinder** | `_out_cylinder_200k_big_inregime_xgbq_physfull` | XGBoost | None | 74.7M |
+| **Flag** | `_out_flag_200k_big_inregime_xgboost_sigcap098` | XGBoost | 0.98 | 31.3M |
 
 ## Coverage & Efficiency
 

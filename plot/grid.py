@@ -70,11 +70,17 @@ def _boundary_nodes(tris: np.ndarray) -> np.ndarray:
 
 def _load_conformal(conformal_out: Path):
     """Load conformal prediction outputs including official coverage from test set."""
-    from conformal.models import SigmaModel, SigmaPredictor
+    from conformal.models import SigmaModel, SigmaPredictor, ComponentwiseSigmaPredictor
 
     thresholds = json.loads((conformal_out / "thresholds.json").read_text())
     sigma = SigmaModel.load(conformal_out)
     sigma_pred = SigmaPredictor.load(conformal_out / "sigma_model.pkl")
+
+    # Load componentwise sigma predictor if available
+    cw_sigma_pred = None
+    cw_path = conformal_out / "componentwise_sigma_model.pkl"
+    if cw_path.exists():
+        cw_sigma_pred = ComponentwiseSigmaPredictor.load(cw_path)
 
     # Load official coverage values from summary.json (evaluated on test set)
     summary_path = conformal_out / "summary.json"
@@ -83,7 +89,7 @@ def _load_conformal(conformal_out: Path):
         summary = json.loads(summary_path.read_text())
         coverage = summary.get("coverage", None)
 
-    return thresholds, sigma, sigma_pred, coverage
+    return thresholds, sigma, sigma_pred, cw_sigma_pred, coverage
 
 
 def _read_feature_set(conformal_out: Path) -> str:
@@ -99,7 +105,7 @@ def _read_feature_set(conformal_out: Path) -> str:
 
 
 def _conformal_radii(
-    traj, thresholds, sigma, sigma_pred, alpha: float, feature_set: str
+    traj, thresholds, sigma, sigma_pred, cw_sigma_pred, alpha: float, feature_set: str
 ):
     """
     Compute conformal prediction effective radii for all methods.
@@ -109,11 +115,13 @@ def _conformal_radii(
     - l2: constant = q_l2 (L2 norm quantile, same everywhere)
     - mah: constant = q_mah × det(Σ)^(1/2D) (Mahalanobis converted to volume-equivalent L2)
     - adapt: varying = q_adapt × σ(x) (scaled by learned local uncertainty)
+    - cw_adapt: varying = q_cw × (∏ᵢ σᵢ(x))^(1/D) (geometric mean of per-component scales)
 
-    The raw quantiles (q_l2, q_mah, q_adapt) have different units/meanings:
+    The raw quantiles (q_l2, q_mah, q_adapt, q_cw) have different units/meanings:
     - q_l2: in physical units (m/s or m)
     - q_mah: dimensionless Mahalanobis distance
     - q_adapt: dimensionless scaling factor
+    - q_cw: dimensionless scaling factor
 
     By computing effective radii, we convert all to the same physical units.
     """
@@ -145,7 +153,7 @@ def _conformal_radii(
     )
     sigma_x = sigma_pred.predict_sigma(X).reshape(T, N).astype(np.float32)
 
-    return {
+    result = {
         "l2": np.full((T, N), q_l2, dtype=np.float32),
         "mah": np.full((T, N), rad_mah_eff, dtype=np.float32),
         "adapt": (q_adapt * sigma_x).astype(np.float32),
@@ -153,6 +161,18 @@ def _conformal_radii(
         "q_mah": q_mah,
         "q_adapt": q_adapt,
     }
+
+    # Componentwise adaptive if available
+    if cw_sigma_pred is not None and "cw_adapt" in thresholds:
+        q_cw = float(thresholds["cw_adapt"][a_str])
+        # Get per-component sigma: (T*N, D) -> reshape to (T, N, D)
+        sigma_vec = cw_sigma_pred.predict_sigma_vec(X).reshape(T, N, D).astype(np.float32)
+        # Effective width = q × geometric_mean(σᵢ) = q × (∏ᵢ σᵢ)^(1/D)
+        geom_mean = np.prod(sigma_vec, axis=-1) ** (1.0 / D)
+        result["cw_adapt"] = (q_cw * geom_mean).astype(np.float32)
+        result["q_cw"] = q_cw
+
+    return result
 
 
 def fig_temporal_grid(
@@ -456,13 +476,14 @@ def fig_conformal_radii(
     alpha: float = 0.1,
     step: int = 50,
     *,
+    layout: str = "1x4",  # "1x4" for horizontal row, "2x2" for grid
     cmap: str = CMAP_VELOCITY,
     dpi: int = PUBLICATION_DPI,
 ) -> None:
     """
-    Compare conformal prediction set radii (L2, Mahalanobis, Adaptive).
+    Compare conformal prediction set radii (L2, Mahalanobis, Adaptive, CW-Adaptive).
 
-    Panels: L2 Isotropic | Mahalanobis | Adaptive Scaling
+    Panels: L2 Isotropic | Mahalanobis | Adaptive | CW-Adaptive (if available)
 
     Recommended configurations (from conformal/RESULTS.md):
         Cylinder:
@@ -481,12 +502,15 @@ def fig_conformal_radii(
           (Mahalanobis quantile scaled to volume-equivalent L2 radius)
         - Adaptive: varying radius = q_adapt × σ(x) at each node
           (adaptive quantile scaled by learned local uncertainty σ(x))
+        - CW-Adaptive: varying radius = q_cw × (∏ᵢ σᵢ(x))^(1/D)
+          (geometric mean of per-component scales)
 
     Visualization:
         - Colors show "Norm. Width" = radius / q_l2 (normalized by L2 Isotropic radius)
         - L2 Isotropic always appears as 1.0 (by definition, since we divide by q_l2)
         - Mahalanobis appears as constant = (q_mah × det(Σ)^(1/2D)) / q_l2
         - Adaptive shows spatial variation = (q_adapt × σ(x)) / q_l2
+        - CW-Adaptive shows spatial variation = (q_cw × geom_mean(σᵢ)) / q_l2
 
     Colorbar scale:
         - vmin = 0.0 (fixed)
@@ -517,9 +541,9 @@ def fig_conformal_radii(
     bnodes = _boundary_nodes(tris)
 
     # Load conformal outputs (including official coverage from test set)
-    thresholds, sigma, sigma_pred, official_coverage = _load_conformal(conformal_out)
+    thresholds, sigma, sigma_pred, cw_sigma_pred, official_coverage = _load_conformal(conformal_out)
     feature_set = _read_feature_set(conformal_out)
-    radii = _conformal_radii(traj, thresholds, sigma, sigma_pred, alpha, feature_set)
+    radii = _conformal_radii(traj, thresholds, sigma, sigma_pred, cw_sigma_pred, alpha, feature_set)
 
     T = radii["l2"].shape[0]
     t = min(max(step, 0), T - 1)
@@ -531,6 +555,7 @@ def fig_conformal_radii(
         cov_l2 = official_coverage["l2"][a_str]
         cov_mah = official_coverage["mah"][a_str]
         cov_adapt = official_coverage["adapt"][a_str]
+        cov_cw = official_coverage.get("cw_adapt", {}).get(a_str, None)
     else:
         # Fallback: compute on current trajectory (less accurate)
         from conformal.io import infer_pred_gt_keys
@@ -542,6 +567,7 @@ def fig_conformal_radii(
         cov_l2 = float(np.mean(residuals <= radii["l2"]))
         cov_mah = float(np.mean(residuals <= radii["mah"]))
         cov_adapt = float(np.mean(residuals <= radii["adapt"]))
+        cov_cw = None
 
     # Get raw effective radii (all in same physical units)
     rad_l2 = radii["l2"][t]  # constant = q_l2
@@ -577,11 +603,25 @@ def fig_conformal_radii(
         ),
         (
             rad_adapt_norm,
-            "Adaptive Scaling",
+            "Adaptive",
             mean_adapt,
             cov_adapt,
         ),
     ]
+
+    # Add CW-Adaptive panel if available
+    if "cw_adapt" in radii:
+        rad_cw = radii["cw_adapt"][t]
+        mean_cw = float(np.mean(rad_cw))
+        rad_cw_norm = rad_cw / norm_factor
+        panels.append((
+            rad_cw_norm,
+            "CW-Adaptive",
+            mean_cw,
+            cov_cw if cov_cw is not None else 0.0,
+        ))
+
+    n_panels = len(panels)
 
     # Color limits for normalized radii (normalized by L2 Isotropic radius q_l2)
     # L2 panel is always 1.0; Mah/Adapt may be > 1.0 if they produce wider bounds
@@ -595,31 +635,55 @@ def fig_conformal_radii(
     ymin, ymax = pos[:, 1].min(), pos[:, 1].max()
     data_aspect = (ymax - ymin) / max(xmax - xmin, 1e-9)
 
-    # Figure sizing: 3 panels + shared colorbar
-    panel_w = 2.2
-    cbar_w = 0.12
-    cbar_gap = 0.08
-    panel_gap = 0.02
-    panel_h = panel_w * data_aspect
-    fig_width = 3 * panel_w + 2 * panel_gap + cbar_gap + cbar_w + 0.25
-    fig_height = panel_h + 0.35  # Extra space for stats below
+    # Layout configuration
+    if layout == "2x2":
+        # 2x2 grid layout (for cylinder)
+        n_cols = 2
+        n_rows = 2
+        panel_w = 2.8
+        panel_h = panel_w * data_aspect
+        cbar_w = 0.15
+        cbar_gap = 0.12
+        h_gap = 0.08
+        v_gap = max(0.65, 0.25 * panel_h)
+
+        fig_width = n_cols * panel_w + h_gap + cbar_gap + cbar_w + 0.1
+        fig_height = n_rows * panel_h + v_gap + 0.3
+    else:
+        # 1x4 horizontal layout (default, for flag)
+        n_cols = n_panels
+        n_rows = 1
+        panel_w = 2.2 if n_panels == 3 else 1.8
+        panel_h = panel_w * data_aspect
+        cbar_w = 0.12
+        cbar_gap = 0.08
+        h_gap = 0.02
+        v_gap = 0
+
+        fig_width = n_panels * panel_w + (n_panels - 1) * h_gap + cbar_gap + cbar_w + 0.25
+        fig_height = panel_h + 0.35
 
     fig = plt.figure(figsize=(fig_width, fig_height), facecolor="white")
-
-    # Calculate positions
-    total_panels_w = 3 * panel_w + 2 * panel_gap
-    left_margin = 0.0
-    bottom_margin = 0.25 / fig_height  # Space for stats
 
     mappables = []
     axes_list = []
 
     for i, (vals, title, mean_width, cov) in enumerate(panels):
-        x_start = (i * (panel_w + panel_gap)) / fig_width
-        width_frac = panel_w / fig_width
-        height = panel_h / fig_height
+        if layout == "2x2":
+            row = i // n_cols
+            col = i % n_cols
+            x_start = col * (panel_w + h_gap) / fig_width
+            y_start = (1 - (row + 1) * panel_h / fig_height - row * v_gap / fig_height)
+            y_start = max(0.12, y_start)
+        else:
+            # 1x4 layout
+            x_start = (i * (panel_w + h_gap)) / fig_width
+            y_start = 0.25 / fig_height  # Space for stats
 
-        ax = fig.add_axes([x_start, bottom_margin, width_frac, height])
+        width_frac = panel_w / fig_width
+        height_frac = panel_h / fig_height
+
+        ax = fig.add_axes([x_start, y_start, width_frac, height_frac])
         ax.set_xlim(xmin, xmax)
         ax.set_ylim(ymin, ymax)
         ax.set_axis_off()
@@ -648,29 +712,41 @@ def fig_conformal_radii(
         )
 
         # Title above panel
-        ax.set_title(title, fontsize=10, family="serif", pad=3)
+        title_fontsize = 10 if layout == "2x2" else (10 if n_panels == 3 else 9)
+        ax.set_title(title, fontsize=title_fontsize, family="serif", pad=3)
 
-        # Stats below panel: mean effective width and coverage
+        # Stats below panel
         ax.text(
             0.5,
             -0.08,
-            f"$\\bar{{W}} = {mean_width:.3f}$, cov = {cov:.3f}",
+            f"$\\bar{{W}} = {mean_width:.2f}$, cov = {cov:.2f}",
             ha="center",
             va="top",
             transform=ax.transAxes,
-            fontsize=8,
+            fontsize=9 if layout == "2x2" else 8,
             family="serif",
+            clip_on=False,
+            zorder=100,
         )
 
     # Shared colorbar on the right
-    cbar_x = (total_panels_w + cbar_gap) / fig_width
-    cbar_h = panel_h / fig_height
-    cax = fig.add_axes([cbar_x, bottom_margin, cbar_w / fig_width, cbar_h])
+    if layout == "2x2":
+        cbar_x = (n_cols * panel_w + h_gap + cbar_gap) / fig_width
+        cbar_bottom = axes_list[2].get_position().y0 if len(axes_list) > 2 else axes_list[0].get_position().y0
+        cbar_top = axes_list[0].get_position().y1
+        cbar_h = cbar_top - cbar_bottom
+    else:
+        total_panels_w = n_panels * panel_w + (n_panels - 1) * h_gap
+        cbar_x = (total_panels_w + cbar_gap) / fig_width
+        cbar_h = panel_h / fig_height
+        cbar_bottom = 0.25 / fig_height
+
+    cax = fig.add_axes([cbar_x, cbar_bottom, cbar_w / fig_width, cbar_h])
     cb = fig.colorbar(mappables[-1], cax=cax)
     cb.locator = MaxNLocator(nbins=5)
     cb.update_ticks()
-    cb.ax.tick_params(labelsize=7, pad=1)
-    cb.set_label("Norm. Width", fontsize=9, rotation=270, labelpad=12)
+    cb.ax.tick_params(labelsize=7 if layout == "1x4" else 8, pad=1 if layout == "1x4" else 2)
+    cb.set_label("Norm. Width", fontsize=9 if layout == "1x4" else 10, rotation=270, labelpad=12 if layout == "1x4" else 14)
     cb.outline.set_linewidth(0.5)
 
     out_png.parent.mkdir(parents=True, exist_ok=True)
@@ -711,6 +787,7 @@ Recommended radii mode configurations:
         help="Conformal output dir (for radii mode). Use sigcap098 version for flag.",
     )
     ap.add_argument("--alpha", type=float, default=0.1, help="Alpha for radii mode")
+    ap.add_argument("--layout", choices=["1x4", "2x2"], default="1x4", help="Layout for radii mode (1x4 for flag, 2x2 for cylinder)")
     args = ap.parse_args()
 
     if args.mode == "3x2":
@@ -735,6 +812,7 @@ Recommended radii mode configurations:
             Path(args.out_png),
             alpha=args.alpha,
             step=args.step_a,
+            layout=args.layout,
         )
 
 

@@ -20,6 +20,14 @@ Given residual vectors $r = y^{true} - y^{pred}$:
 - **Standard CP ($\ell_\infty$)**: score $s = \|r\|\_\infty$ → half-width $Q_\infty$
 - **Mahalanobis CP**: fit covariance $\Sigma$ on **aux**, score $s=\sqrt{r^\top \Sigma^{-1} r}$ → whitened radius $Q_{\mathrm{Mah}}$
 - **Spatially-adaptive CP**: learn $\sigma(x)$ on **aux**, score $s=\|r\|\_2/\sigma(x)$ on **cal** → adaptive radius $Q_{\mathrm{adapt}}\cdot\sigma(x)$
+- **CW-Adaptive CP**: learn per-component $\sigma_j(x)$ on **aux**, score $s_j=|r_j|/\sigma_j(x)$ on **cal** → per-component adaptive half-width $Q_{\mathrm{cw}}\cdot\sigma_j(x)$
+
+### Efficiency summary
+
+| Dataset | Best Method | Notes |
+|---------|-------------|-------|
+| **CylinderFlow** | Mahalanobis | Strong component correlation in velocity field |
+| **Flag** | CW-Adaptive | Position components benefit from per-axis scaling |
 
 ## Inputs (what you need to generate first)
 

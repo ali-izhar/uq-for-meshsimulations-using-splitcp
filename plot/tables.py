@@ -20,13 +20,14 @@ import numpy as np
 # Constants
 # ---------------------------------------------------------------------------
 
-METHODS = ["l2", "linf", "mah", "adapt"]
+METHODS = ["l2", "linf", "mah", "adapt", "cw_adapt"]
 
 METHOD_LABELS = {
     "l2": r"$\ell_2$ (disk)",
     "linf": r"Joint $\ell_\infty$ (box)",
     "mah": r"Mahalanobis",
     "adapt": r"Adaptive",
+    "cw_adapt": r"Componentwise",
 }
 
 METHOD_LABELS_SHORT = {
@@ -34,6 +35,7 @@ METHOD_LABELS_SHORT = {
     "linf": r"$\ell_\infty$",
     "mah": r"Mah.",
     "adapt": r"Adapt.",
+    "cw_adapt": r"CW-Adapt.",
 }
 
 DATASET_LABELS = {
@@ -72,12 +74,16 @@ class DatasetResults:
     results: Dict[str, Dict[float, MethodResult]]
 
 
-# Sample breakdown for captions (from summary.json eval_samples)
-# Full rollout: CylinderFlow = 100×398×1972 = 78.5M, Flag = 100×198×1579 = 31.3M
-# Conformal pipeline subsamples for efficiency
+# Sample breakdown for captions
 SAMPLE_INFO = {
-    "cylinder": "subsampled from 100 trajectories $\\times$ 1972 nodes $\\times$ 398 timesteps",
-    "flag": "subsampled from 100 trajectories $\\times$ 1579 nodes $\\times$ 198 timesteps",
+    "cylinder": "100 trajectories $\\times$ 1972 nodes $\\times$ 398 timesteps",
+    "flag": "100 trajectories $\\times$ 1579 nodes $\\times$ 198 timesteps",
+}
+
+# Override sample counts (use actual totals rather than summary.json which may exclude boundary)
+SAMPLE_COUNTS = {
+    "cylinder": 78_485_600,  # 100 × 1972 × 398
+    "flag": 31_264_200,      # 100 × 1579 × 198
 }
 
 
@@ -99,7 +105,10 @@ def load_dataset_results(conformal_out: str, name: str, dim: int) -> DatasetResu
 
     results: Dict[str, Dict[float, MethodResult]] = {}
 
-    for method in METHODS:
+    # Check which methods are available in the summary
+    available_methods = [m for m in METHODS if m in summary.get("coverage", {})]
+
+    for method in available_methods:
         results[method] = {}
         for alpha_str, cov in summary["coverage"][method].items():
             alpha = float(alpha_str)
@@ -111,7 +120,9 @@ def load_dataset_results(conformal_out: str, name: str, dim: int) -> DatasetResu
 
             if method == "l2":
                 vol = l2_vol
-            elif method == "adapt":
+            elif method in ("adapt", "cw_adapt"):
+                # Both adaptive methods: avg_r is already the effective radius
+                # (geometric mean of semi-axes for cw_adapt)
                 vol = unit_vol * (avg_r**dim)
             elif method == "linf":
                 vol = (2 * avg_r) ** dim
@@ -161,13 +172,24 @@ def _fmt_width(val: float, best: float) -> str:
 
 
 def _find_best(data: DatasetResults, alphas: List[float]):
-    """Find best coverage and width per alpha."""
+    """Find best coverage (closest to nominal 1-α) and width (smallest) per alpha."""
     best_cov = {}
     best_width = {}
+    available_methods = list(data.results.keys())
     for a in alphas:
-        if a in data.results["l2"]:
-            best_cov[a] = max(data.results[m][a].coverage for m in METHODS)
-            best_width[a] = min(data.results[m][a].width_norm for m in METHODS)
+        if a in data.results.get("l2", {}):
+            nominal = 1 - a
+            # Best coverage = closest to nominal (minimum absolute deviation)
+            coverages = [
+                data.results[m][a].coverage
+                for m in available_methods if a in data.results[m]
+            ]
+            best_cov[a] = min(coverages, key=lambda c: abs(c - nominal))
+            # Best width = smallest
+            best_width[a] = min(
+                data.results[m][a].width_norm
+                for m in available_methods if a in data.results[m]
+            )
     return best_cov, best_width
 
 
@@ -223,8 +245,9 @@ def write_latex_dataset_table(
     lines.append(header2 + r" \\")
     lines.append(r"\midrule")
 
-    # Data rows
-    for i, method in enumerate(METHODS):
+    # Data rows - only include methods available in results
+    available_methods = [m for m in METHODS if m in data.results]
+    for i, method in enumerate(available_methods):
         row_color = r"\rowcolor{gray!8}" if i % 2 == 1 else ""
         cells = [METHOD_LABELS[method]]
         for a in alphas:
@@ -240,7 +263,7 @@ def write_latex_dataset_table(
         l2 = data.results["l2"][a]
 
         # Find method with smallest width at this alpha
-        best_method = min(METHODS, key=lambda m: data.results[m][a].width_norm)
+        best_method = min(available_methods, key=lambda m: data.results[m][a].width_norm)
         best = data.results[best_method][a]
 
         # Coverage change
@@ -265,9 +288,10 @@ def write_latex_dataset_table(
         cells.append(width_str)
     lines.append(" & ".join(cells) + r" \\")
 
-    # Add sample info
+    # Add sample info (use override counts if available)
     sample_info = SAMPLE_INFO.get(data.name, "")
-    n_samples = f"{data.eval_samples:,}" if data.eval_samples else "N/A"
+    sample_count = SAMPLE_COUNTS.get(data.name, data.eval_samples)
+    n_samples = f"{sample_count:,}" if sample_count else "N/A"
 
     lines.extend(
         [
@@ -321,8 +345,12 @@ def write_latex_combined_compact(
     lines.append(" & ".join(["", ""] + ["Cov. & Width"] * len(alphas)) + r" \\")
     lines.append(r"\midrule")
 
-    # CylinderFlow
-    for i, method in enumerate(METHODS):
+    # CylinderFlow - only show methods available in both datasets
+    cyl_methods = [m for m in METHODS if m in cyl.results]
+    flag_methods = [m for m in METHODS if m in flag.results]
+    common_methods = [m for m in METHODS if m in cyl.results and m in flag.results]
+
+    for i, method in enumerate(cyl_methods):
         ds_label = DATASET_LABELS["cylinder"] if i == 0 else ""
         row_color = r"\rowcolor{gray!8}" if i % 2 == 1 else ""
         cells = [row_color + ds_label, METHOD_LABELS_SHORT[method]]
@@ -335,7 +363,7 @@ def write_latex_combined_compact(
     lines.append(r"\midrule")
 
     # Flag
-    for i, method in enumerate(METHODS):
+    for i, method in enumerate(flag_methods):
         ds_label = DATASET_LABELS["flag"] if i == 0 else ""
         row_color = r"\rowcolor{gray!8}" if i % 2 == 1 else ""
         cells = [row_color + ds_label, METHOD_LABELS_SHORT[method]]
@@ -345,8 +373,10 @@ def write_latex_combined_compact(
             cells.append(_fmt_width(r.width_norm, flag_best_width[a]))
         lines.append(" & ".join(cells) + r" \\")
 
-    cyl_n = f"{cyl.eval_samples:,}" if cyl.eval_samples else "N/A"
-    flag_n = f"{flag.eval_samples:,}" if flag.eval_samples else "N/A"
+    cyl_count = SAMPLE_COUNTS.get(cyl.name, cyl.eval_samples)
+    flag_count = SAMPLE_COUNTS.get(flag.name, flag.eval_samples)
+    cyl_n = f"{cyl_count:,}" if cyl_count else "N/A"
+    flag_n = f"{flag_count:,}" if flag_count else "N/A"
 
     lines.extend(
         [
@@ -398,7 +428,8 @@ def write_latex_coverage_shortfall(
     lines.append(header2 + r" \\")
     lines.append(r"\midrule")
 
-    for i, method in enumerate(METHODS):
+    common_methods = [m for m in METHODS if m in cyl.results and m in flag.results]
+    for i, method in enumerate(common_methods):
         row_color = r"\rowcolor{gray!8}" if i % 2 == 1 else ""
         cells = [row_color + METHOD_LABELS_SHORT[method]]
         for ds_data in [cyl, flag]:
@@ -428,9 +459,12 @@ def write_latex_efficiency_ratio(
 
     alphas = [a for a in alphas if a in cyl.results["l2"] and a in flag.results["l2"]]
 
+    # Common methods available in both datasets
+    common_methods = [m for m in METHODS if m in cyl.results and m in flag.results]
+
     # Best (smallest) width per dataset per alpha
-    cyl_best = {a: min(cyl.results[m][a].width_norm for m in METHODS) for a in alphas}
-    flag_best = {a: min(flag.results[m][a].width_norm for m in METHODS) for a in alphas}
+    cyl_best = {a: min(cyl.results[m][a].width_norm for m in common_methods) for a in alphas}
+    flag_best = {a: min(flag.results[m][a].width_norm for m in common_methods) for a in alphas}
 
     lines = [
         r"\begin{table}[ht]",
@@ -455,7 +489,7 @@ def write_latex_efficiency_ratio(
     lines.append(header2 + r" \\")
     lines.append(r"\midrule")
 
-    for i, method in enumerate(METHODS):
+    for i, method in enumerate(common_methods):
         row_color = r"\rowcolor{gray!8}" if i % 2 == 1 else ""
         cells = [row_color + METHOD_LABELS_SHORT[method]]
 
@@ -555,18 +589,21 @@ def write_latex_split_sensitivity(out_tex: Path) -> None:
 def write_csv_table(data: DatasetResults, alphas: List[float], out_csv: Path) -> None:
     """Write CSV table for coverage plots."""
     import csv
-    
+
     out_csv.parent.mkdir(parents=True, exist_ok=True)
     alphas = [a for a in alphas if a in data.results["l2"]]
-    
+
     # Get L2 width for normalization
     l2_widths = {a: data.results["l2"][a].width_norm for a in alphas}
-    
+
+    # Only include methods available in this dataset
+    available_methods = [m for m in METHODS if m in data.results]
+
     with open(out_csv, "w", newline="") as f:
         writer = csv.writer(f)
         writer.writerow(["dataset", "method", "alpha", "coverage", "avg_radius", "width_norm", "size_norm"])
-        
-        for method in METHODS:
+
+        for method in available_methods:
             for a in alphas:
                 r = data.results[method][a]
                 # size_norm = width^d (volume), for backwards compatibility with coverage plot
