@@ -84,6 +84,7 @@ def fig_coverage_efficiency(
     *,
     dim: int = 2,
     dpi: int = PUBLICATION_DPI,
+    log_scale: bool = True,
 ) -> None:
     """
     Create 1x2 coverage reliability and width efficiency plot.
@@ -182,7 +183,8 @@ def fig_coverage_efficiency(
     ax_eff.set_xlabel(r"$1 - \alpha$", fontsize=9)
     ax_eff.set_ylabel(r"Width $W = V^{1/d}$$^\dagger$", fontsize=9)
     ax_eff.set_title("Width Efficiency", fontsize=10, fontweight="medium")
-    ax_eff.set_yscale("log")
+    if log_scale:
+        ax_eff.set_yscale("log")
     ax_eff.set_xlim(0.68, 0.97)
     # Use 0.1 intervals for more compact display
     ax_eff.set_xticks([0.7, 0.8, 0.9])
@@ -229,6 +231,8 @@ Recommended usage:
     )
     ap.add_argument("--dataset", default="", help="Dataset name for title")
     ap.add_argument("--dim", type=int, default=2, help="Output dimension (2 for Cylinder, 3 for Flag)")
+    ap.add_argument("--log-scale", dest="log_scale", action="store_true", default=True, help="Use log scale for width (default)")
+    ap.add_argument("--no-log-scale", dest="log_scale", action="store_false", help="Use linear scale for width")
     args = ap.parse_args()
 
     fig_coverage_efficiency(
@@ -236,6 +240,7 @@ Recommended usage:
         Path(args.out_png),
         dataset_name=args.dataset,
         dim=args.dim,
+        log_scale=args.log_scale,
     )
 
 
