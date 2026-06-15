@@ -1,0 +1,47 @@
+cff-version: 1.2.0
+message: "If you use this software, please cite both the journal article (preferred-citation) and the archived software release below."
+title: "Uncertainty Quantification Using Conformal Prediction for Mesh-Based Simulations"
+abstract: >-
+  Code and artifacts for post-hoc split conformal prediction on
+  autoregressive surrogate (MeshGraphNet) rollouts for mesh-based physics
+  simulations. Implements L2, L-infinity, Mahalanobis, adaptive, and
+  component-wise adaptive conformal score functions, and reports empirical
+  coverage and prediction-set efficiency under temporal and spatial
+  dependence on the CylinderFlow (CFD) and Flag (cloth) datasets.
+type: software
+license: MIT
+repository-code: "https://github.com/ali-izhar/uq-for-meshsimulations-using-splitcp"
+url: "https://github.com/ali-izhar/uq-for-meshsimulations-using-splitcp"
+version: 1.0.0
+date-released: "2026-06-15"
+authors:
+  - family-names: Mabtoul
+    given-names: Samira
+    # orcid: "https://orcid.org/0000-0000-0000-0000"  # TODO: add ORCID
+  - family-names: Ali
+    given-names: Izhar
+    orcid: "https://orcid.org/0009-0006-9643-1869" 
+  - family-names: Ho
+    given-names: Shen-Shyang
+    orcid: "https://orcid.org/0000-0002-0353-7159"
+keywords:
+  - conformal prediction
+  - uncertainty quantification
+  - mesh-based simulation
+  - surrogate models
+  - MeshGraphNet
+  - graph neural networks
+  - computational fluid dynamics
+  - exchangeability
+preferred-citation:
+  type: article
+  title: "Uncertainty Quantification Using Conformal Prediction for Mesh-Based Simulations"
+  journal: "Philosophical Transactions of the Royal Society A"
+  year: 2026
+  authors:
+    - family-names: Mabtoul
+      given-names: Samira
+    - family-names: Ali
+      given-names: Izhar
+    - family-names: Ho
+      given-names: Shen-Shyang
