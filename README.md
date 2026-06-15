@@ -1,8 +1,7 @@
 # Uncertainty Quantification Using Conformal Prediction for Mesh-Based Simulations
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
-<!-- After the first Zenodo release, replace the line below with the DOI badge Zenodo provides: -->
-<!-- [![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.XXXXXXX.svg)](https://doi.org/10.5281/zenodo.XXXXXXX) -->
+[![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.20707220.svg)](https://doi.org/10.5281/zenodo.20707220)
 
 Code and artifacts for **post-hoc split conformal prediction** on **autoregressive surrogate (MeshGraphNet) rollouts** for mesh-based physics simulations.
 
