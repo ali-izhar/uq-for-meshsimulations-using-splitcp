@@ -378,6 +378,7 @@ def run_conformal_pipeline(
         "sigma_cap_quantile": (
             float(sigma_cap_quantile) if sigma_cap_quantile is not None else None
         ),
+        "seed": int(seed),
         "counts": {
             "aux_samples_cov": aux_counts_cov,
             "aux_samples_sigma": aux_counts_sigma,

@@ -26,8 +26,8 @@ Given residual vectors $r = y^{true} - y^{pred}$:
 
 | Dataset | Best Method | Notes |
 |---------|-------------|-------|
-| **CylinderFlow** | Mahalanobis | Strong component correlation in velocity field |
-| **Flag** | CW-Adaptive | Position components benefit from per-axis scaling |
+| **CylinderFlow** | CW-Adaptive | Smallest sets (up to ~55% vs L2) via per-component, spatially-varying scales; Mahalanobis gives only ~14% from global anisotropy |
+| **Flag** | CW-Adaptive | Per-axis scaling captures position heterogeneity; Mahalanobis can inflate sets (no exploitable global structure) |
 
 ## Inputs (what you need to generate first)
 
@@ -64,20 +64,67 @@ python3 conformal/run_conformal.py \
   --alphas 0.1 0.05
 ```
 
+### Reproduce the paper (exact canonical runs)
+
+These are the **exact** commands behind the paper's tables and figures. They use the
+full (uncapped) `rollouts_200k_big` rollouts and `--seed 42`. The non-adaptive methods
+(ℓ₂, ℓ∞, Mahalanobis) are bit-exact; with `n_jobs=1` (the default in `models.py`) the
+XGBoost-based adaptive methods are reproducible as well.
+
+```bash
+# CylinderFlow (velocity) — canonical
+python3 conformal/run_conformal.py \
+  --aux_pkl  meshgraphnet/rollouts_200k_big/rollout_cylinder_auxiliary_200k.pkl \
+  --cal_pkl  meshgraphnet/rollouts_200k_big/rollout_cylinder_calibration_200k.pkl \
+  --eval_pkl meshgraphnet/rollouts_200k_big/rollout_cylinder_test_200k.pkl \
+  --outdir   conformal/_out_cylinder_200k_big_inregime_xgbq_physfull \
+  --alphas 0.3 0.2 0.1 0.05 \
+  --sigma_model xgboost \
+  --feature_set physics_full \
+  --seed 42
+
+# Flag (position) — canonical (sigma capped at the 98th percentile)
+python3 conformal/run_conformal.py \
+  --aux_pkl  meshgraphnet/rollouts_200k_big/rollout_flag_auxiliary_200k.pkl \
+  --cal_pkl  meshgraphnet/rollouts_200k_big/rollout_flag_calibration_200k.pkl \
+  --eval_pkl meshgraphnet/rollouts_200k_big/rollout_flag_test_200k.pkl \
+  --outdir   conformal/_out_flag_200k_big_inregime_xgboost_sigcap098 \
+  --alphas 0.3 0.2 0.1 0.05 \
+  --sigma_model xgboost \
+  --feature_set physics_full \
+  --sigma_cap_quantile 0.98 \
+  --seed 42
+```
+
+Both runs are uncapped (≈74.7M cylinder / ≈31.3M flag node×timestep samples) and fit on
+~120 GB RAM. The `--max_*` flags below are an **optional** memory-control variant that
+subsamples and therefore does **not** reproduce the canonical numbers exactly.
+
+Generate the paper tables from these outputs with:
+
+```bash
+python3 plot/tables.py \
+  --cyl_conformal_out  conformal/_out_cylinder_200k_big_inregime_xgbq_physfull \
+  --flag_conformal_out conformal/_out_flag_200k_big_inregime_xgboost_sigcap098 \
+  --out_dir paper_tables --alphas 0.30 0.20 0.10 0.05
+```
+
 ### Large rollouts (recommended caps)
 
 This pipeline flattens rollouts to node×timestep rows. Use `--max_aux_cov/--max_aux_sigma/--max_cal/--max_eval` to cap rows and control memory on very large rollouts (while still using millions of samples).
 
 ### Adaptive CP robustness knob: `--sigma_cap_quantile`
 
-For **adaptive** CP on heavy-tailed rollouts (notably Flag), the mean volume metric can be dominated by a tiny fraction of samples with very large predicted $\sigma(x)$ (since size scales as $(q\,\sigma)^D$). To keep results stable with minimal changes, you can cap $\sigma(x)$ at a high quantile of auxiliary $\sigma$-predictions and recalibrate as usual:
+For **adaptive** CP on heavy-tailed rollouts (notably Flag), the mean volume metric can be dominated by a tiny fraction of samples with very large predicted $\sigma(x)$ (since size scales as $(q\,\sigma)^D$). To keep results stable with minimal changes, you can cap $\sigma(x)$ at a high quantile of auxiliary $\sigma$-predictions and recalibrate as usual. The canonical Flag run already uses `--sigma_cap_quantile 0.98` (see "Reproduce the paper" above).
+
+The example below is an **optional, memory-capped variant** for machines with limited RAM: the `--max_*` flags subsample to a few million rows, so it does **not** reproduce the canonical numbers exactly (it is a separate output directory by design).
 
 ```bash
 python3 conformal/run_conformal.py \
   --aux_pkl  meshgraphnet/rollouts_200k_big/rollout_flag_auxiliary_200k.pkl \
   --cal_pkl  meshgraphnet/rollouts_200k_big/rollout_flag_calibration_200k.pkl \
   --eval_pkl meshgraphnet/rollouts_200k_big/rollout_flag_test_200k.pkl \
-  --outdir conformal/_out_flag_200k_big_inregime_xgbq_physfull_sigcap098 \
+  --outdir conformal/_out_flag_sigcap098_capped_variant \
   --alphas 0.3 0.2 0.1 0.05 \
   --sigma_model xgboost \
   --feature_set physics_full \

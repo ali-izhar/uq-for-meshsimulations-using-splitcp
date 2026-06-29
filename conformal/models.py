@@ -389,7 +389,7 @@ def fit_sigma_model(
                 objective="reg:quantileerror",
                 quantile_alpha=0.5,
                 random_state=int(seed),
-                n_jobs=0,
+                n_jobs=1,  # single-threaded for bit-reproducibility across machines
             )
         except TypeError:
             # Fallback for older xgboost: pseudo-Huber is a reasonable robust surrogate.
@@ -402,7 +402,7 @@ def fit_sigma_model(
                 reg_lambda=1.0,
                 objective="reg:pseudohubererror",
                 random_state=int(seed),
-                n_jobs=0,
+                n_jobs=1,  # single-threaded for bit-reproducibility across machines
             )
         model.fit(X.astype(np.float32), y_log.astype(np.float32))
         return SklearnLogSigma(model=model)

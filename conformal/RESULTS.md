@@ -8,8 +8,8 @@ Empirical split conformal prediction on MeshGraphNet rollout `.pkl` files.
 
 ## Key Findings
 
-- **Mahalanobis** achieves smallest prediction sets for CylinderFlow (velocity field with correlated components)
-- **CW-Adaptive** achieves smallest prediction sets for Flag (72% width vs L2 baseline at α=0.05)
+- **CW-Adaptive** achieves the smallest prediction sets for CylinderFlow (up to ~55% smaller than the L2 ball); Mahalanobis gives only a modest ~14% gain from the velocity field's anisotropic correlation
+- **CW-Adaptive** achieves the smallest prediction sets for Flag (72% width vs L2 baseline at α=0.05); Mahalanobis can inflate sets here (no exploitable global structure)
 
 ## Configurations
 

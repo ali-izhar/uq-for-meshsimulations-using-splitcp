@@ -14,13 +14,13 @@ Mesh-based neural surrogates roll out autoregressively, so their errors are **st
 ## Key Findings
 
 1. **Coverage is approximately valid** despite temporal/spatial dependence when calibration and evaluation share rollout dynamics.
-2. **Efficiency depends on output structure**: Mahalanobis gives the smallest sets for velocity fields (CylinderFlow); CW-Adaptive is most efficient for position fields (Flag, 72% of L2-baseline width at α=0.05).
+2. **CW-Adaptive is the most efficient across both output structures**: it yields the smallest prediction sets on velocity fields (CylinderFlow, up to ~55% smaller than the L2 ball) and position fields (Flag, 72% of L2-baseline width at α=0.05). Mahalanobis gives only a modest gain on CylinderFlow (~14%, via anisotropic velocity structure) and can *inflate* sets on Flag, where residuals lack exploitable global structure.
 3. **Dependence is pervasive**: temporal ACF(lag-1) ≈ 0.99, spatial Moran's I ≈ 0.9.
 4. **Scale**: validated on ~75M samples (CylinderFlow) and ~31M samples (Flag).
 
 | Dataset | Domain | Output | Mesh Nodes | Timesteps | Eval Samples | Best method |
 |---------|--------|--------|-----------:|----------:|-------------:|-------------|
-| **CylinderFlow** | CFD (2D) | Velocity (m/s) | ~1,900 | 400 | 74.7M | Mahalanobis |
+| **CylinderFlow** | CFD (2D) | Velocity (m/s) | ~1,900 | 400 | 74.7M | CW-Adaptive |
 | **Flag** | Cloth (3D) | Position (m) | ~1,800 | 200 | 31.3M | CW-Adaptive |
 
 ## Repository Map
