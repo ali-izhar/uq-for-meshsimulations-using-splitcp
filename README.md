@@ -2,8 +2,13 @@
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 [![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.20707220.svg)](https://doi.org/10.5281/zenodo.20707220)
+[![Paper](https://img.shields.io/badge/Phil.%20Trans.%20R.%20Soc.%20A-10.1098%2Frsta.2025.0076-blue)](https://doi.org/10.1098/rsta.2025.0076)
 
 Code and artifacts for **post-hoc split conformal prediction** on **autoregressive surrogate (MeshGraphNet) rollouts** for mesh-based physics simulations.
+
+This repository accompanies the article:
+
+> Samira Mabtoul, Izhar Ali, Shen-Shyang Ho. *Uncertainty quantification using conformal prediction for mesh-based simulations.* Phil. Trans. R. Soc. A **384** (2327): 20250076, 27 August 2026. [https://doi.org/10.1098/rsta.2025.0076](https://doi.org/10.1098/rsta.2025.0076)
 
 ## Motivation
 
@@ -64,10 +69,17 @@ If you use this software, please cite both the article and the archived software
 
 ```bibtex
 @article{mabtoul2026conformal,
-  title={Uncertainty Quantification Using Conformal Prediction for Mesh-Based Simulations},
+  title={Uncertainty quantification using conformal prediction for mesh-based simulations},
   author={Mabtoul, Samira and Ali, Izhar and Ho, Shen-Shyang},
-  journal={Philosophical Transactions of the Royal Society A},
-  year={2026}
+  journal={Philosophical Transactions of the Royal Society A: Mathematical, Physical and Engineering Sciences},
+  volume={384},
+  number={2327},
+  pages={20250076},
+  year={2026},
+  month={aug},
+  publisher={The Royal Society},
+  doi={10.1098/rsta.2025.0076},
+  url={https://doi.org/10.1098/rsta.2025.0076}
 }
 ```
 

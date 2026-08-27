@@ -12,15 +12,19 @@ type: software
 license: MIT
 repository-code: "https://github.com/ali-izhar/uq-for-meshsimulations-using-splitcp"
 url: "https://github.com/ali-izhar/uq-for-meshsimulations-using-splitcp"
+identifiers:
+  - type: doi
+    value: "10.5281/zenodo.20707220"
+    description: "Zenodo archive of the software release"
 version: 1.0.0
 date-released: "2026-06-15"
 authors:
   - family-names: Mabtoul
     given-names: Samira
-    # orcid: "https://orcid.org/0000-0000-0000-0000"  # TODO: add ORCID
+    orcid: "https://orcid.org/0009-0008-1100-7474"
   - family-names: Ali
     given-names: Izhar
-    orcid: "https://orcid.org/0009-0006-9643-1869" 
+    orcid: "https://orcid.org/0009-0006-9643-1869"
   - family-names: Ho
     given-names: Shen-Shyang
     orcid: "https://orcid.org/0000-0002-0353-7159"
@@ -35,13 +39,26 @@ keywords:
   - exchangeability
 preferred-citation:
   type: article
-  title: "Uncertainty Quantification Using Conformal Prediction for Mesh-Based Simulations"
-  journal: "Philosophical Transactions of the Royal Society A"
+  title: "Uncertainty quantification using conformal prediction for mesh-based simulations"
+  journal: "Philosophical Transactions of the Royal Society A: Mathematical, Physical and Engineering Sciences"
+  publisher:
+    name: "The Royal Society"
+  volume: 384
+  issue: 2327
+  start: 20250076
   year: 2026
+  month: 8
+  date-published: "2026-08-27"
+  doi: "10.1098/rsta.2025.0076"
+  url: "https://doi.org/10.1098/rsta.2025.0076"
+  issn: "1364-503X"
   authors:
     - family-names: Mabtoul
       given-names: Samira
+      orcid: "https://orcid.org/0009-0008-1100-7474"
     - family-names: Ali
       given-names: Izhar
+      orcid: "https://orcid.org/0009-0006-9643-1869"
     - family-names: Ho
       given-names: Shen-Shyang
+      orcid: "https://orcid.org/0000-0002-0353-7159"
